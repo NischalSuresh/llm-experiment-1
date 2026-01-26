@@ -21,3 +21,6 @@ venv/
 Thumbs.db
 
 docs_local/
+
+# wandb
+wandb/

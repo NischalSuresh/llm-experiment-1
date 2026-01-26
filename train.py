@@ -9,7 +9,8 @@ from src.dataloader import get_dataloader
 from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 def main():
-    accelerator = Accelerator()
+    accelerator = Accelerator(log_with="wandb")
+    accelerator.init_trackers("llm-experiment-1")
     model = get_model("HuggingFaceTB/SmolLM2-135M")
     dataloader = get_dataloader("HuggingFaceTB/SmolLM2-135M", batch_size=2)
     optimizer = torch.optim.AdamW(
@@ -43,6 +44,9 @@ def main():
         
         progress_bar.update(1)
         progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
+        
+        if step % log_every == 0:
+            accelerator.log({"train_loss": loss.item(), "lr": lr_scheduler.get_last_lr()[0]}, step=step)
         
         if step == 100:
             break
