@@ -9,10 +9,10 @@ from src.dataloader import get_dataloader
 from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 def main():
-    accelerator = Accelerator(log_with="wandb")
+    accelerator = Accelerator(log_with="wandb", mixed_precision="bf16")
     accelerator.init_trackers("llm-experiment-1")
     model = get_model("HuggingFaceTB/SmolLM2-135M")
-    dataloader = get_dataloader("HuggingFaceTB/SmolLM2-135M", batch_size=2)
+    dataloader = get_dataloader("HuggingFaceTB/SmolLM2-135M", batch_size=4)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=5e-4,
