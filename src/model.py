@@ -10,7 +10,7 @@ def get_model(model_name="HuggingFaceTB/SmolLM2-135M", from_scratch=False):
         model = AutoModelForCausalLM.from_config(config)
     
     else:
-        model - AutoModelForCausalLM.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name)
         
     return model
 
