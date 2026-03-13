@@ -44,9 +44,13 @@ def save_checkpoint(accelerator, model, step, output_dir):
 
 
 def main():
-    accelerator = Accelerator(log_with="wandb", mixed_precision="bf16")
+    accelerator = Accelerator(
+        log_with="wandb",
+        mixed_precision="bf16",
+        gradient_accumulation_steps=8,
+    )
     accelerator.init_trackers("llm-experiment-1")
-    model = get_model("HuggingFaceTB/SmolLM2-135M")
+    model = get_model("HuggingFaceTB/SmolLM2-135M", from_scratch=True)
     dataloader = get_dataloader("HuggingFaceTB/SmolLM2-135M", batch_size=4)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -75,29 +79,31 @@ def main():
     model.train()
     progress_bar = tqdm(range(num_training_steps), initial=starting_step, disable=not accelerator.is_local_main_process)
     
-    log_every = 10
-    
-    for step, batch in enumerate(train_dataloader, start=starting_step):
-        outputs = model(**batch)
-        loss = outputs.loss
-        accelerator.backward(loss)
-        
-        accelerator.clip_grad_norm_(model.parameters(), max_grad_norm)
-        
-        optimizer.step()
-        lr_scheduler.step()
-        optimizer.zero_grad()
-        
-        progress_bar.update(1)
-        progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
-        
-        if step % log_every == 0:
+    step = starting_step
+    for batch in train_dataloader:
+        with accelerator.accumulate(model):
+            outputs = model(**batch)
+            loss = outputs.loss
+            accelerator.backward(loss)
+
+        if accelerator.sync_gradients:
+            accelerator.clip_grad_norm_(model.parameters(), max_grad_norm)
+            optimizer.step()
+            lr_scheduler.step()
+            optimizer.zero_grad()
+
+            progress_bar.update(1)
+            progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
             accelerator.log({"train_loss": loss.item(), "lr": lr_scheduler.get_last_lr()[0]}, step=step)
-        
-        if step in SAVE_MILESTONES:
-            save_checkpoint(accelerator, model, step, OUTPUT_DIR)
+
+            if step in SAVE_MILESTONES:
+                save_checkpoint(accelerator, model, step, OUTPUT_DIR)
+
+            step += 1
+            if step >= num_training_steps:
+                break
     
-    save_checkpoint(accelerator, model, step, OUTPUT_DIR)
+    save_checkpoint(accelerator, model, step - 1, OUTPUT_DIR)
     accelerator.end_training()
 
 if __name__ == "__main__":

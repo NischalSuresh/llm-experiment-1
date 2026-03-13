@@ -24,3 +24,6 @@ docs_local/
 
 # wandb
 wandb/
+
+# Checkpoints
+checkpoints/
